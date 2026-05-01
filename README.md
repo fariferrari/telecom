@@ -37,8 +37,6 @@ The project is designed to be used together with a frontend map application.
 
 ## Project Structure
 
-Recommended project structure:
-
 ```text
 .
 ├── main.py
