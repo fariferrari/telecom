@@ -1,0 +1,2659 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>РК по РШ (полигоны + точки)</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <style>
+    body {
+      margin: 0;
+      padding: 16px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      font-size: 14px;
+      color: #1f2937;
+      background-color: #f9fafb;
+    }
+    body > div:not(#map) {
+      background: white;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 12px 16px;
+      margin-bottom: 12px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+    button {
+      background-color: #3b82f6;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      padding: 8px 16px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background-color 0.2s;
+      margin-right: 8px;
+      margin-bottom: 4px;
+    }
+    button:hover {
+      background-color: #2563eb;
+    }
+    button:active {
+      background-color: #1d4ed8;
+    }
+    #resetLocalStorage {
+      background-color: #ef4444;
+    }
+    #resetLocalStorage:hover {
+      background-color: #dc2626;
+    }
+    #toggleChangedEntries {
+      background-color: #f59e0b;
+    }
+    #toggleChangedEntries:hover {
+      background-color: #d97706;
+    }
+    #drawPolygonBtn {
+      background-color: #10b981;
+    }
+    #drawPolygonBtn:hover {
+      background-color: #059669;
+    }
+    #drawPolygonBtn.active {
+      background-color: #047857;
+    }
+    #editRshPolygonsBtn {
+      background-color: #f59e0b;
+    }
+    #editRshPolygonsBtn:hover {
+      background-color: #d97706;
+    }
+    #editRshPolygonsBtn.active {
+      background-color: #b45309;
+    }
+    #savePolygonBtn {
+      background-color: #8b5cf6;
+      display: none;
+    }
+    #savePolygonBtn:hover {
+      background-color: #7c3aed;
+    }
+    #cancelDrawingBtn {
+      background-color: #ef4444;
+      display: none;
+    }
+    #cancelDrawingBtn:hover {
+      background-color: #dc2626;
+    }
+    #exportPolygonsBtn {
+      background-color: #06b6d4;
+    }
+    #exportPolygonsBtn:hover {
+      background-color: #0891b2;
+    }
+    #polygonsPanel {
+      max-height: 300px;
+      overflow-y: auto;
+      border: 1px solid #e5e7eb;
+      border-radius: 6px;
+      padding: 8px;
+      margin-top: 8px;
+      display: none;
+      background-color: #f9fafb;
+    }
+    .polygon-item {
+      background: white;
+      border: 1px solid #d1d5db;
+      border-radius: 4px;
+      padding: 8px;
+      margin-bottom: 6px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+    }
+    .polygon-item button {
+      padding: 4px 8px;
+      font-size: 12px;
+      margin-left: 4px;
+      margin-right: 0;
+      margin-bottom: 0;
+    }
+    body > div:nth-child(2) > div {
+      margin-top: 12px;
+      padding: 12px;
+      background-color: #f3f4f6;
+      border-radius: 6px;
+      line-height: 1.8;
+    }
+    body > div:nth-child(2) > div b {
+      color: #374151;
+      font-weight: 600;
+    }
+    body > div:nth-child(2) > div span {
+      color: #6b7280;
+      font-weight: 500;
+    }
+    #count-changed-address,
+    #count-new-offline,
+    #count-new-pending {
+      color: #dc2626;
+      font-weight: 600;
+    }
+    #map {
+      height: calc(100vh - 280px);
+      min-height: 400px;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    @media (max-width: 768px) {
+      body {
+        padding: 8px;
+      }
+      button {
+        width: 100%;
+        margin-right: 0;
+        margin-bottom: 8px;
+      }
+      #map {
+        height: calc(100vh - 320px);
+      }
+    }
+    .rsh-label {
+      background: rgba(255,255,255,0.9);
+      border: 1px solid rgba(0,0,0,0.25);
+      border-radius: 10px;
+      padding: 2px 8px;
+      font: 12px/1.2 Arial;
+      white-space: nowrap;
+      box-shadow: 0 1px 6px rgba(0,0,0,0.2);
+    }
+    .popup-title { font-weight: 700; margin-bottom: 6px; }
+    .muted { opacity: .75; font-size: 12px; }
+    .addr-input, .rsh-input {
+      width: 80%;
+      margin-bottom: 4px;
+    }
+    .rk-number-text {
+      display: inline-block;
+      max-width: 260px;
+      vertical-align: middle;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .copy-rk-btn {
+      margin-left: 6px;
+      padding: 2px 6px;
+      font-size: 11px;
+      line-height: 1.2;
+      background-color: #e5e7eb;
+      color: #111827;
+    }
+    .copy-rk-btn:hover {
+      background-color: #d1d5db;
+    }
+    .rk-search-control {
+      background: white;
+      padding: 6px;
+      border-radius: 6px;
+      border: 1px solid #e5e7eb;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    .rk-search-control input {
+      width: 160px;
+      padding: 6px 8px;
+      border: 1px solid #d1d5db;
+      border-radius: 4px;
+      font-size: 12px;
+    }
+    .rk-search-control button {
+      padding: 6px 8px;
+      font-size: 12px;
+      margin-left: 6px;
+      margin-right: 0;
+    }
+    .leaflet-popup-content {
+      max-height: 260px;
+      width: 600px;
+      overflow-y: auto;
+      overflow-x: hidden;
+    }
+    .manual-vertex-icon {
+      width: 10px;
+      height: 10px;
+      background: #ffffff;
+      border: 2px solid #111827;
+      box-shadow: 0 0 4px rgba(0,0,0,0.4);
+    }
+    #polygonSaveModal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.5);
+      z-index: 1000;
+      justify-content: center;
+      align-items: center;
+    }
+    #polygonSaveModal.active {
+      display: flex;
+    }
+    .modal-content {
+      background: white;
+      border-radius: 8px;
+      padding: 20px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      max-width: 400px;
+      width: 90%;
+    }
+    .modal-content h3 {
+      margin-top: 0;
+      margin-bottom: 16px;
+      color: #1f2937;
+    }
+    .form-group {
+      margin-bottom: 12px;
+    }
+    .form-group label {
+      display: block;
+      margin-bottom: 4px;
+      font-weight: 500;
+      color: #374151;
+      font-size: 13px;
+    }
+    .form-group input,
+    .form-group select {
+      width: 100%;
+      padding: 8px;
+      border: 1px solid #d1d5db;
+      border-radius: 4px;
+      font-size: 13px;
+      font-family: inherit;
+      box-sizing: border-box;
+    }
+    .form-group input:focus,
+    .form-group select:focus {
+      outline: none;
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    }
+    .modal-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 16px;
+      justify-content: flex-end;
+    }
+    .modal-actions button {
+      margin-right: 0;
+      margin-bottom: 0;
+      min-width: 80px;
+    }
+    #skipIzhsBtn {
+      background-color: #ef4444;
+    }
+    #skipIzhsBtn:hover {
+      background-color: #dc2626;
+    }
+    #skipIzhsBtn.active {
+      background-color: #991b1b;
+    }
+    #skipIzhsPanel {
+      background: white;
+      border: 1px solid #e5e7eb;
+      border-radius: 6px;
+      padding: 12px;
+      margin-top: 8px;
+      display: none;
+    }
+    .skip-checkbox {
+      margin-right: 8px;
+      cursor: pointer;
+    }
+    .skip-item {
+      margin: 6px 0;
+      padding: 6px;
+      background: #f9fafb;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+    }
+    #saveSkippedBtn {
+      background-color: #10b981;
+      margin-top: 8px;
+    }
+    #saveSkippedBtn:hover {
+      background-color: #059669;
+    }
+    #cancelSkipBtn {
+      background-color: #6b7280;
+      margin-top: 8px;
+    }
+    #cancelSkipBtn:hover {
+      background-color: #4b5563;
+    }
+  </style>
+</head>
+<body>
+  <div>
+    <button id="exportGeoJSONForEnki">Экспорт GeoJSON для enki</button>
+    <button id="exportGeoJSONForReload">Экспорт GeoJSON для этого сайта (без изменений)</button>
+    <button id="resetLocalStorage">Сбросить Локальные Изменения</button>
+    <button id="exportChangesJSON">Экспорт JSON Изменений</button>
+    <button id="exportRequestAbonentsCSV">Экспорт CSV pending запрашиваемых зданий</button>
+  </div>
+  <div>
+    <button id="skipIzhsBtn">🚫 Режим Исключения ИЖС</button>
+    <div id="skipIzhsPanel">
+      <div style="margin-bottom: 12px; font-weight: bold;">Выбор зданий для исключения:</div>
+      <div id="skipIzhsList" style="max-height: 200px; overflow-y: auto; margin-bottom: 8px;"></div>
+      <button id="saveSkippedBtn">💾 Сохранить в skipped_izhs.json</button>
+      <button id="cancelSkipBtn">✖️ Отмена</button>
+    </div>
+  </div>
+  <div>
+    <button id="drawPolygonBtn">✏️ Рисовать Полигон</button>
+    <button id="editRshPolygonsBtn">✏️ Редактировать РК полигоны</button>
+    <button id="undoRshPolygonBtn">↩️ Отмена действия</button>
+    <button id="exportEditedPolygonsBtn">💾 Выгрузить измененные полигоны (JSON)</button>
+    <button id="savePolygonBtn">💾 Сохранить Полигон</button>
+    <button id="cancelDrawingBtn">✖️ Отмена</button>
+    <button id="exportPolygonsBtn">📥 Выгрузить Полигоны (GeoJSON)</button>
+    <button id="exportPolygonsCSVBtn">📥 Выгрузить Полигоны (CSV)</button>
+    <div class="muted" style="margin-top: 6px;">
+      Режим редактирования РК: 1) клик по полигону выбирает его 2) клик по границе добавляет точку.
+    </div>
+    <div id="polygonsPanel">
+      <div style="margin-bottom: 8px; font-weight: bold;">Сохраненные полигоны:</div>
+      <div id="polygonsList"></div>
+    </div>
+  </div>
+  <div>
+    <button id="toggleChangedEntries">Выкл измененных Абонентов, КЯ/РК точек</button>
+    Нажать 1 - вкл/выкл измененных, Нажать 2 - вкл/выкл всех абонентов, Нажать 3 - вкл /выкл объектов без адреса
+    <div>
+      <b>Подключенные КЯ/РК:</b> <span id="count-connected">0</span>;
+      <b>НЕ Подключенные КЯ/РК:</b> <span id="count-not-connected">0</span> (<span id="count-changed-address">0</span> адресов заменено);
+      <b>offline КЯ/РК:</b> <span id="count-offline">0</span> (+<span id="count-new-offline">0</span>);
+      <b>КЯ/РК Ожидающие Полигоны:</b> <span id="count-pending">0</span> (+<span id="count-new-pending">0</span>);
+      <b>Не Распределенные Абоненты с Несколькими РШ:</b> <span id="count-unassigned-multi-rsh">0</span> / <span id="count-total-multi-rsh">0</span>
+    </div>
+  </div>
+  <div id="polygonSaveModal">
+    <div class="modal-content">
+      <h3>Сохранить полигон</h3>
+      <div class="form-group">
+        <label for="polygonStreet">Улица (street) *</label>
+        <input type="text" id="polygonStreet" placeholder="Введите название улицы">
+      </div>
+      <div class="form-group">
+        <label for="polygonHouse">Дом (house) *</label>
+        <input type="text" id="polygonHouse" placeholder="Введите номер дома">
+      </div>
+      <div class="form-group">
+        <label for="polygonBuildingType">Тип здания (building_type)</label>
+        <select id="polygonBuildingType">
+          <option value="">-- Выбрать --</option>
+          <option value="GOVERNMENT">GOVERNMENT</option>
+          <option value="MZHK">MZHK</option>
+          <option value="IZHS">IZHS</option>
+          <option value="OTHER">OTHER</option>
+          <option value="ADMINISTRATIVE">ADMINISTRATIVE</option>
+          <option value="INDUSTRIAL">INDUSTRIAL</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="polygonPurpose">Назначение (purpose)</label>
+        <select id="polygonPurpose">
+          <option value="">-- Выбрать --</option>
+          <option value="Жилой дом">Жилой дом</option>
+          <option value="Частный дом">Частный дом</option>
+          <option value="Государственное учреждение">Государственное учреждение</option>
+          <option value="Хозяйственный корпус">Хозяйственный корпус</option>
+          <option value="Административное здание">Административное здание</option>
+        </select>
+      </div>
+      <div class="modal-actions">
+        <button id="polygonSaveCancelBtn">Отмена</button>
+        <button id="polygonSaveConfirmBtn">Сохранить</button>
+      </div>
+    </div>
+  </div>
+<div id="map"></div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css" />
+<script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
+<script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>
+<!-- <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet-measure@3.3.0/dist/leaflet-measure.css" />
+<script src="https://unpkg.com/leaflet-measure@3.1.0/dist/leaflet-measure.js"></script> -->
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<script>
+const skippedIzhsIds = new Set();
+fetch("skipped_izhs.json")
+  .then(res => {
+    if (!res.ok) return null; // file missing → skip
+    return res.json();
+  })
+  .then(data => {
+    if (!Array.isArray(data)) return;
+    data.forEach(id => skippedIzhsIds.add(id));
+    console.log(
+      "Loaded ids of izhs to be skipped:",
+      [...skippedIzhsIds]
+    );
+  })
+  .catch(() => {
+  });
+  const SWITCH_ZOOM = 15;
+  const map = L.map('map', { preferCanvas: false}).setView([51.1694, 71.4491], 12);
+  const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 20,
+    attribution: '&copy; OpenStreetMap contributors'
+  });
+  const gis = L.tileLayer("https://tile2.maps.2gis.com/tiles?x={x}&y={y}&z={z}", {
+    maxZoom: 20,
+    maxNativeZoom: 18,
+    attribution: "© 2GIS"
+  }).addTo(map);
+  const rkSearchControl = L.control({ position: 'topleft' });
+  rkSearchControl.onAdd = () => {
+    const container = L.DomUtil.create('div', 'rk-search-control');
+    container.innerHTML = `
+      <input id="rkSearchInput" type="text" placeholder="Поиск РК по номеру" />
+      <button id="rkSearchBtn">Найти</button>
+    `;
+    L.DomEvent.disableClickPropagation(container);
+    return container;
+  };
+  rkSearchControl.addTo(map);
+  const polygonsLayer = L.featureGroup().addTo(map);
+  const izhsSpidersLayer = L.layerGroup();
+  const nonIzhsSpidersLayer = L.layerGroup().addTo(map);
+  const centersLayer = L.layerGroup().addTo(map);
+  const pointsLayer = L.layerGroup().addTo(map);
+  const noConnectionPointsLayer = L.layerGroup().addTo(map);
+  const multiRshPointsLayer = L.layerGroup();
+  const offlinePointsLayer = L.layerGroup();
+  const pendingPointsLayer = L.layerGroup();
+  const abonentsLayer = L.layerGroup();
+  const nfAbonentsLayer = L.layerGroup();
+  const multiRshAbonentsLayer = L.layerGroup();
+  const otherLayer = L.layerGroup();
+  const abonentsIzhsSpidersLayer = L.layerGroup();
+  const abonentsNonIzhsSpidersLayer = L.layerGroup();
+  const noApplyZoom = L.layerGroup().addTo(map);
+  const layerControl = L.control.layers({
+    "OpenStreetMaps": osm,
+    "2gis": gis
+  }, {
+    "Шкафные Районы (полигоны)": polygonsLayer,
+    "Подключение Шкафных Районов, ИЖС (спайдер)": izhsSpidersLayer,
+    "Подключение Шкафных Районов, Остальные (спайдер)": nonIzhsSpidersLayer,
+    "Подключенные КЯ/РК Точки": pointsLayer,
+    "Не Подключенные КЯ/РК Точки": noConnectionPointsLayer,
+    "КЯ/РК Точки в Нескольких Шкафных Районах": multiRshPointsLayer,
+    "❌КЯ/РК Точки с несуществующим зданием": offlinePointsLayer,
+    "КЯ/РК Точки в процессе обработки": pendingPointsLayer,
+    "Все РШ Точки": centersLayer,
+    "Подключенные Абоненты": abonentsLayer,
+    "Не Подключенные Абоненты": nfAbonentsLayer,
+    "Абоненты в Нескольких Шкафных Районах": multiRshAbonentsLayer,
+    "Все другие объекты без адреса": otherLayer,
+    "Подключение ИЖС Абонентов (Spiders)": abonentsIzhsSpidersLayer,
+    "❌Подключение Остальных Абонентов (Spiders)": abonentsNonIzhsSpidersLayer,
+    "Динамичный Зум": noApplyZoom
+  }).addTo(map);
+  map.createPane('spider1Pane');
+  map.getPane('spider1Pane').style.zIndex = 450;
+  map.getPane('spider1Pane').style.pointerEvents = 'none';
+  map.createPane('spider2Pane');
+  map.getPane('spider2Pane').style.zIndex = 451;
+  map.getPane('spider2Pane').style.pointerEvents = 'none';
+  map.createPane('polygon1Pane');
+  map.getPane('polygon1Pane').style.zIndex = 401;
+  map.createPane('polygon2Pane');
+  map.getPane('polygon2Pane').style.zIndex = 402;
+  map.createPane('vertexPane');
+  map.getPane('vertexPane').style.zIndex = 1000;
+  map.getPane('vertexPane').style.pointerEvents = 'auto';
+  map.createPane('markerPane');
+  map.getPane('markerPane').style.zIndex = 600;
+  function toggleLayerGroup(layers) {
+    if (!layers || !layers.length) return;
+    const anyVisible = layers.some(layer => layer && map.hasLayer(layer));
+    layers.forEach(layer => {
+      if (!layer) return;
+      if (anyVisible) {
+        map.removeLayer(layer);
+      } else {
+        map.addLayer(layer);
+      }
+    });
+  }
+  document.addEventListener("keydown", (e) => {
+    if (e.repeat) return;
+    if (["INPUT", "TEXTAREA"].includes(e.target.tagName)) return;
+    switch (e.code) {
+      case "Digit1":
+      case "Numpad1": {
+        const btn = document.getElementById("toggleChangedEntries");
+        if (btn) btn.click();
+        break;
+      }
+      case "Digit2":
+      case "Numpad2": {
+        toggleLayerGroup([abonentsLayer, nfAbonentsLayer]);
+        break;
+      }
+      case "Digit3":
+      case "Numpad3": {
+        toggleLayerGroup([otherLayer]);
+        break;
+      }
+    }
+});
+  function hashString(s) {
+    s = (s ?? "").toString();
+    let h = 2166136261;
+    for (let i = 0; i < s.length; i++) {
+      h ^= s.charCodeAt(i);
+      h = Math.imul(h, 16777619);
+    }
+    return h >>> 0;
+  }
+  function colorForRsh(rsh) {
+    const hash = hashString(rsh);
+
+    function rand(seed) {
+      seed ^= seed << 13;
+      seed ^= seed >> 17;
+      seed ^= seed << 5;
+      return (seed >>> 0) / 4294967296;
+    }
+
+    const hue = Math.floor(rand(hash) * 360);
+    const saturation = 60 + rand(hash + 1) * 25;
+    return `hsl(${hue}, ${saturation}%, 45%)`;
+  }
+  function rkLabel(p) {
+    return (p.rk_number ?? p.rk_name ?? p.id ?? '').toString();
+  }
+  const rkMarkerByNumber = new Map();
+  function searchRkByNumber(rawValue) {
+    const q = (rawValue ?? '').toString().trim();
+    if (!q) return;
+    const matches = rkMarkerByNumber.get(q);
+    if (!matches || matches.length === 0) {
+      alert('РК не найден: ' + q);
+      return;
+    }
+    const target = matches[0];
+    const latlng = target.getLatLng();
+    map.setView(latlng, Math.max(map.getZoom(), 17));
+    target.openPopup();
+  }
+  function coordKey([lon, lat]) {
+    return `${lon.toFixed(6)},${lat.toFixed(6)}`;
+  }
+  function popupHtmlForRsh(rsh, items) {
+    const MAX = 30; // чтобы попап не был гигантским
+    const list = items.slice(0, MAX).map(x => rkLabel(x)).filter(Boolean);
+    const tail = items.length > MAX ? `<div class="muted">…и ещё ${items.length - MAX}</div>` : '';
+    return `
+      <div class="popup-title">РШ: ${rsh}</div>
+      <div>${items[0].cabinet_id}</div>
+      <div>${items[0].status_rsh}</div>
+      <div>${items[0].address_rsh}</div>
+      <div class="muted">РК в группе: ${items.length}</div>
+      <hr/>
+      <div style="max-height:220px; overflow:auto;">
+        ${list.map(v => `<div>• ${v}</div>`).join('')}
+        ${tail}
+      </div>
+    `;
+  }
+  function editableAddressBlock(p, isGlobal = false) {
+    const id = p.id;
+    const value = editedAddresses[id] ?? p.address ?? "";
+    const isOffline = editedStatuses[id] == "offline";
+    const isPending = editedStatuses[id] == "pending";
+    const isForceExternal = editedForceExternal[id] == true;
+    if (isGlobal) {
+      return `
+        <label class="addr-label">Указать адрес ВСЕМ:</label>
+        <input
+          type="text"
+          class="global-addr-input"
+          value="${value}"
+        />
+        <button class="global-save-btn">💾</button><br>
+        <button class="global-offline-btn">${isOffline ? "Сбросить offline статус ВСЕМ" : "Установить offline статус ВСЕМ"}</button><br>
+        <button class="global-pending-btn">${isPending ? "Сбросить pending статус ВСЕМ" : "Установить pending статус ВСЕМ"}</button>
+      `;
+    } else {
+      return `
+        <label class="addr-label">Адрес:</label>
+        <input
+          type="text"
+          class="addr-input"
+          data-id="${id}"
+          value="${value}"
+        />
+        <button class="save-btn" data-id="${id}">💾</button><br>
+        <button class="offline-btn" data-id="${id}">${isOffline ? "Сбросить offline статус" : "Установить offline статус"}</button><br>
+        <button class="pending-btn" data-id="${id}">${isPending ? "Сбросить pending статус" : "Установить pending статус"}</button><br>
+        <button class="external-btn" data-id="${id}">${isForceExternal ? "Сбросить force_external флаг" : "Установить force_external флаг"}</button>
+      `;
+    }
+  }
+  function editableOtherAddressBlock(p) {
+    const id = p.id;
+    const value = newAddresses[id] ?? "";
+    return `
+      <label class="addr-label">Адрес:</label>
+      <input
+        type="text"
+        class="addr-input"
+        data-id="${id}"
+        value="${value}"
+      />
+      <button class="save-btn" data-id="${id}">💾</button>
+    `;
+  }
+  function editableRshBlock(p) {
+    const id = p.id;
+    const value = p.code_rsh ?? [];
+    const isForce1To1 = editedForce1To1[id] == true;
+    const tail = (value.length != 1 || editedRsh[id]) ?
+      `<select class="rsh-input" data-id="${id}" value="">
+        ${value.map(v => `<option value="${v}">${v}</option>`).join("\n")}
+       </select>
+      <button class="save-btn" data-id="${id}">💾</button>` :
+      ` ${value[0]}`;
+    return `
+      <label class="rsh-input-label"><b>РШ:</b></label>
+      ${(value.length == 0) ? "-" : tail}<br>
+      <button class="one-to-one-btn" data-id="${id}">${isForce1To1 ? "Сбросить force_one_to_one флаг" : "Установить force_one_to_one флаг"}</button>
+    `;
+  }
+  function extractLonLatPairs(geometry) {
+    const result = [];
+    function walk(coords) {
+      if (
+        Array.isArray(coords) &&
+        coords.length === 2 &&
+        typeof coords[0] === "number" &&
+        typeof coords[1] === "number"
+      ) {
+        result.push(coords);
+        return;
+      }
+      if (Array.isArray(coords)) {
+        for (const c of coords) {
+          walk(c);
+        }
+      }
+    }
+    walk(geometry);
+    return result;
+  }
+  function toMultiPolygonCoords(geometry) {
+    if (!geometry) return [];
+    if (geometry.type === "Polygon") {
+      return [geometry.coordinates];
+    }
+    if (geometry.type === "MultiPolygon") {
+      return geometry.coordinates;
+    }
+    return [];
+  }
+  function buildSpiderGeoJSON(coordsLonLat, centerLatLng) {
+      const features = coordsLonLat.map(pt => {
+          return turf.lineString([centerLatLng, pt]);
+      });
+      return turf.featureCollection(features);
+  }
+  function buildGroupPolygonGeoJSON(coordsLonLat) {
+    if (coordsLonLat.length === 0) return null;
+    if (coordsLonLat.length >= 3) {
+      const pts = turf.points(coordsLonLat);
+      let hull = turf.concave(pts, { maxEdge: 200, units: 'meters' });
+      if (!hull) hull = turf.convex(pts);
+      if (!hull) return null;
+      if (hull.geometry.type === 'MultiPolygon') {
+        const polys = hull.geometry.coordinates.map(c => turf.polygon([c[0]]));
+        hull = polys.reduce((a, p) => (a ? turf.union(a, p) : p), null);
+      }
+      if (hull.geometry.type === 'Polygon') {
+        return turf.polygon([hull.geometry.coordinates[0]]);
+      }
+      if (hull.geometry.type === 'MultiPolygon') {
+        const polys = hull.geometry.coordinates.map(c => turf.polygon([c[0]]));
+        return polys.reduce((a, p) => (a ? turf.union(a, p) : p), null);
+      }
+      return hull;
+    }
+    if (coordsLonLat.length === 2) {
+      const line = turf.lineString(coordsLonLat);
+      return turf.buffer(line, 30, { units: 'meters' }); // Polygon
+    }
+    const pt = turf.point(coordsLonLat[0]);
+    return turf.buffer(pt, 30, { units: 'meters' }); // Polygon
+  }
+  function centroidOfPolygon(polyGeoJson) {
+    return turf.centerOfMass(polyGeoJson);
+  }
+  function applyZoomVisibility() {
+    const z = map.getZoom();
+    const showPoints = z >= SWITCH_ZOOM;
+    const showCenters = z >= (SWITCH_ZOOM - 1);
+    if (map.hasLayer(noApplyZoom)) {
+      if (showPoints) {
+        if (!map.hasLayer(pointsLayer)) map.addLayer(pointsLayer);
+        if (!map.hasLayer(noConnectionPointsLayer)) map.addLayer(noConnectionPointsLayer);
+      } else {
+        if (map.hasLayer(pointsLayer)) map.removeLayer(pointsLayer);
+        if (map.hasLayer(noConnectionPointsLayer)) map.removeLayer(noConnectionPointsLayer);
+      }
+      if (showCenters) {
+        if (!map.hasLayer(centersLayer)) map.addLayer(centersLayer);
+      } else {
+        if (map.hasLayer(centersLayer)) map.removeLayer(centersLayer);
+      }
+    }
+    polygonsLayer.eachLayer(l => {
+      if (l.setStyle) {
+        l.setStyle({ fillOpacity: showPoints ? 0.10 : 0.18, weight: showPoints ? 1.5 : 2 });
+      }
+    });
+  }
+  function updateCounts() {
+    document.getElementById("count-connected").textContent = countConnected;
+    document.getElementById("count-not-connected").textContent = countNotConnected;
+    document.getElementById("count-changed-address").textContent = countChangedAddress;
+    document.getElementById("count-offline").textContent = countOffline;
+    document.getElementById("count-new-offline").textContent = countNewOffline;
+    document.getElementById("count-pending").textContent = countPending;
+    document.getElementById("count-new-pending").textContent = countNewPending;
+    document.getElementById("count-unassigned-multi-rsh").textContent = countUnassignedMultiRsh;
+    document.getElementById("count-total-multi-rsh").textContent = countTotalMultiRsh;
+  }
+  map.on('zoomend', applyZoomVisibility);
+  function updateAbonentRshState(state, newRsh, rshCoords) {
+    if (state.lineLayer) {
+      nonIzhsSpidersLayer.removeLayer(state.lineLayer);
+      state.lineLayer = null;
+    }
+    if (newRsh && newRsh != "") {
+      if (!state.currentRsh) countUnassignedMultiRsh -= 1;
+      updateCounts();
+      col = colorForRsh(newRsh);
+      state.currentRsh = newRsh;
+      if (rshCoords) {
+        const lineLayer = L.geoJSON({
+              "type": "LineString",
+              "coordinates": [state.coords, rshCoords]
+          }, {
+          pane: 'spider1Pane',
+          style: {
+            color: col,
+            weight: 2,
+            fillColor: col,
+            fillOpacity: 0.18
+          }
+        });
+        nonIzhsSpidersLayer.addLayer(lineLayer);
+        state.lineLayer = lineLayer;
+      }
+      for (const kyaRk of state.kyaRkList) {
+        if (featureById[kyaRk].properties.code_rsh == newRsh) editedStatuses[kyaRk] = "active";
+        else editedStatuses[kyaRk] = "inactive";
+        localStorage.setItem(
+          "editedStatuses",
+          JSON.stringify(editedStatuses)
+        );
+      }
+    }
+    if (state.polyLayer) {
+      col = (newRsh && newRsh != "") ? colorForRsh(state.currentRsh) : "black";
+      state.polyLayer.setStyle({
+        color: col,
+        fillColor: col
+      });
+    }
+  }
+  document.getElementById("exportGeoJSONForEnki").onclick = () => {
+    if (!originalGeoJSON) {
+      alert("GeoJSON not loaded");
+      return;
+    }
+    const out = JSON.parse(JSON.stringify(originalGeoJSON));
+    out.cabinet_region.forEach(f => {
+      const id = f.properties?.id;
+      if (!id) return;
+      if (Array.isArray(exportPolyLayers[id]) && exportPolyLayers[id].length > 0) {
+        f.geometry.coordinates = exportPolyLayers[id];
+      } else f.geometry = null;
+    });
+    out.rk.forEach(f => {
+      const p = f.properties;
+      if (!p) return;
+      if (Array.isArray(p.address_id)) {
+        p.address_id = p.address_id.filter(
+          id => !skippedIzhsIds.has(id)
+        );
+      }
+      delete p.code_rsh;
+      delete p.status_rsh;
+      delete p.address_rsh;
+      delete p.coords_rsh;
+    });
+    out.address.forEach(f => {
+      if (!f.properties) return;
+      delete f.properties.kya_rk;
+      delete f.properties.code_rsh;
+    });
+    delete out.other;
+    delete out.changes;
+    const blob = new Blob(
+      [JSON.stringify(out, null, 2)],
+      { type: "application/geo+json;charset=utf-8;" }
+    );
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "replace_with_city_name.geojson";
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+  document.getElementById("exportGeoJSONForReload").onclick = () => {
+    if (!originalGeoJSON) {
+      alert("GeoJSON not loaded");
+      return;
+    }
+    const out = JSON.parse(JSON.stringify(originalGeoJSON));
+    const blob = new Blob(
+      [JSON.stringify(out, null, 2)],
+      { type: "application/geo+json;charset=utf-8;" }
+    );
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "objects.geojson";
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+  document.getElementById("exportChangesJSON").onclick = () => {
+    const exportData = {
+      editedStatuses,
+      editedRsh,
+      editedAddresses,
+      editedForceExternal,
+      editedForce1To1,
+      newAddresses
+    };
+    if (
+      Object.keys(editedStatuses).length === 0 &&
+      Object.keys(editedRsh).length === 0 &&
+      Object.keys(editedAddresses).length === 0 &&
+      Object.keys(editedForceExternal).length === 0 &&
+      Object.keys(editedForce1To1).length === 0 &&
+      Object.keys(newAddresses).length === 0
+    ) {
+      alert("No changes to export");
+      return;
+    }
+    let mergedChanges;
+    if (originalGeoJSON?.changes) {
+      mergedChanges = {
+        editedStatuses: {
+          ...(originalGeoJSON.changes.editedStatuses || {}),
+          ...editedStatuses
+        },
+        editedRsh: {
+          ...(originalGeoJSON.changes.editedRsh || {}),
+          ...editedRsh
+        },
+        editedAddresses: {
+          ...(originalGeoJSON.changes.editedAddresses || {}),
+          ...editedAddresses
+        },
+        editedForceExternal: {
+          ...(originalGeoJSON.changes.editedForceExternal || {}),
+          ...editedForceExternal
+        },
+        editedForce1To1: {
+          ...(originalGeoJSON.changes.editedForce1To1 || {}),
+          ...editedForce1To1
+        },
+        newAddresses: {
+          ...(originalGeoJSON.changes.newAddresses || {}),
+          ...newAddresses
+        }
+      };
+    } else {
+      mergedChanges = exportData;
+    }
+    const blob = new Blob(
+      [JSON.stringify(mergedChanges, null, 2)],
+      { type: "application/json;charset=utf-8;" }
+    );
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "changes.json";
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+  document.getElementById("exportRequestAbonentsCSV").onclick = () => {
+    if (!requestAbonents || Object.keys(requestAbonents).length === 0) {
+      alert("Нет pending-запросов для экспорта");
+      return;
+    }
+    const rows = [];
+    const headerSet = new Set();
+    originalGeoJSON.rk.forEach(f => {
+      if (!f.properties) return;
+      const id = f.properties.id;
+      const req = requestAbonents[id];
+      if (!req) return;
+      const row = {
+        ...f.properties,
+        lon_building: req.lon,
+        lat_building: req.lat
+      };
+      Object.keys(row).forEach(k => headerSet.add(k));
+      rows.push(row);
+    });
+    if (rows.length === 0) {
+      alert("Совпадений не найдено");
+      return;
+    }
+    const headers = Array.from(headerSet);
+    const csv = [
+      headers.join(","),
+      ...rows.map(r =>
+        headers
+          .map(h => {
+            const v = r[h] ?? "";
+            return `"${String(v).replace(/"/g, '""')}"`;
+          })
+          .join(",")
+      )
+    ].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "request_abonents.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+  document.getElementById("resetLocalStorage").onclick = () => {
+    const ok = confirm(
+      "Вы уверены что хотите сбросить все локальные изменения?\n\nВернуть изменения нельзя."
+    );
+    if (!ok) return;
+    countChangedAddress = 0;
+    countNewOffline = 0;
+    countNewPending = 0;
+    editedAddresses = {};
+    localStorage.setItem("editedAddresses", "{}");
+    console.log("🧹 Edited addresses reset");
+    Object.keys(editedRsh).forEach(id => {
+      countUnassignedMultiRsh += 1;
+      const state = abonentVisualState.get(id);
+      if (state) {
+        updateAbonentRshState(state, null, null);
+      }
+    });
+    editedRsh = {};
+    localStorage.setItem("editedRsh", "{}");
+    console.log("🧹 Edited rsh reset");
+    editedStatuses = {};
+    localStorage.setItem("editedStatuses", "{}");
+    console.log("🧹 Edited statuses reset");
+    requestAbonents = {};
+    localStorage.setItem("requestAbonents", "{}");
+    editedForceExternal = {};
+    localStorage.setItem("editedForceExternal", "{}");
+    editedForce1To1 = {};
+    localStorage.setItem("editedForce1To1", "{}");
+    newAddresses = {};
+    localStorage.setItem("newAddresses", "{}");
+    updateCounts();
+  };
+  document.getElementById("toggleChangedEntries").onclick = (e) => {
+    const btn = e.currentTarget;
+    const isOn = btn.textContent == "Выкл измененных Абонентов, КЯ/РК точек";
+    Object.keys(editedRsh).forEach(key => {
+      const stateAbonent = abonentVisualState.get(key);
+      const stateRk = rkVisualStateByAddressId.get(key);
+      if (stateAbonent) {
+        if (multiRshAbonentsLayer.hasLayer(stateAbonent.polyLayer) && isOn) multiRshAbonentsLayer.removeLayer(stateAbonent.polyLayer);
+        else multiRshAbonentsLayer.addLayer(stateAbonent.polyLayer);
+      }
+      if (stateRk) {
+        if (multiRshPointsLayer.hasLayer(stateRk.pointLayer) && isOn) multiRshPointsLayer.removeLayer(stateRk.pointLayer);
+        else multiRshPointsLayer.addLayer(stateRk.pointLayer);
+      }
+    });
+    const combinedCoords = new Set([
+      ...Object.keys(editedAddresses).map(id => rkCoordById[id]),
+      ...Object.keys(editedForceExternal).map(id => rkCoordById[id]),
+      ...Object.entries(editedStatuses)
+        .filter(([, status]) => status === "offline" || status === "pending")
+        .map(([id]) => rkCoordById[id])
+    ]);
+    combinedCoords.forEach(key => {
+      const stateRk = rkVisualStateByCoord.get(key);
+      if (stateRk) {
+        if (noConnectionPointsLayer.hasLayer(stateRk.pointLayer) && isOn) noConnectionPointsLayer.removeLayer(stateRk.pointLayer);
+        else noConnectionPointsLayer.addLayer(stateRk.pointLayer);
+      }
+    });
+    if (isOn) btn.textContent = "Вкл измененных Абонентов, КЯ/РК точек";
+    else btn.textContent = "Выкл измененных Абонентов, КЯ/РК точек";
+  };
+  const exportPolyLayers = {};
+  const EDITED_POLYGONS_STORAGE_KEY = 'editedCabinetPolygons';
+  const EDITED_POLYGONS_FILE = 'edited_polygons.json';
+  let editedCabinetPolygons = {};
+  let originalGeoJSON = null;
+  const featureById = {};
+  const rkCoordById = {};
+  async function loadEditedCabinetPolygons() {
+    try {
+      const stored = localStorage.getItem(EDITED_POLYGONS_STORAGE_KEY);
+      editedCabinetPolygons = stored ? JSON.parse(stored) : {};
+    } catch (e) {
+      console.warn('Error loading edited polygons:', e);
+      editedCabinetPolygons = {};
+    }
+    const baseUrl = window.location.origin.includes('localhost') || window.location.origin.includes('127.0.0.1')
+      ? 'http://localhost:8000'
+      : window.location.origin;
+    const sources = [
+      EDITED_POLYGONS_FILE,
+      `./${EDITED_POLYGONS_FILE}`,
+      `./frontend/${EDITED_POLYGONS_FILE}`,
+      `../frontend/${EDITED_POLYGONS_FILE}`,
+      `${baseUrl}/${EDITED_POLYGONS_FILE}`
+    ];
+    for (const src of sources) {
+      try {
+        const res = await fetch(`${src}?t=${Date.now()}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data && typeof data === 'object') {
+            editedCabinetPolygons = { ...editedCabinetPolygons, ...data };
+          }
+          console.log('Loaded edited polygons from', src);
+          break;
+        }
+      } catch (e) {
+        // ignore and try next
+      }
+    }
+  }
+  function saveEditedCabinetPolygons() {
+    try {
+      localStorage.setItem(
+        EDITED_POLYGONS_STORAGE_KEY,
+        JSON.stringify(editedCabinetPolygons)
+      );
+    } catch (e) {
+      console.warn('Error saving edited polygons:', e);
+    }
+  }
+  function getEditedPolyCoords(cabinetId) {
+    return editedCabinetPolygons ? editedCabinetPolygons[cabinetId] : null;
+  }
+  function normalizeRing(ring) {
+    if (!Array.isArray(ring) || ring.length < 3) return null;
+    const first = ring[0];
+    const last = ring[ring.length - 1];
+    const isClosed = Array.isArray(first) && Array.isArray(last)
+      && first.length === 2 && last.length === 2
+      && first[0] === last[0] && first[1] === last[1];
+    const out = isClosed ? ring.slice() : ring.concat([first]);
+    return out.length >= 4 ? out : null;
+  }
+  function normalizePolygonCoords(coords) {
+    const normalized = [];
+    coords.forEach(poly => {
+      if (!Array.isArray(poly) || poly.length === 0) return;
+      const outer = normalizeRing(poly[0]);
+      if (outer) normalized.push([outer]);
+    });
+    return normalized;
+  }
+  function buildGeoJsonFromCoords(coords) {
+    if (!coords || !coords.length) return null;
+    const normalized = normalizePolygonCoords(coords);
+    if (!normalized.length) return null;
+    if (normalized.length === 1) {
+      return { type: 'Polygon', coordinates: normalized[0] };
+    }
+    return { type: 'MultiPolygon', coordinates: normalized };
+  }
+  function updateExportPolyForCabinet(cabinetId) {
+    if (!cabinetId) return;
+    const coords = [];
+    polygonsLayer.eachLayer(layer => {
+      if (layer && layer._cabinetId === cabinetId && layer.toGeoJSON) {
+        const gj = layer.toGeoJSON();
+        if (!gj || !gj.geometry) return;
+        if (gj.geometry.type === "Polygon") {
+          coords.push(gj.geometry.coordinates);
+        } else if (gj.geometry.type === "MultiPolygon") {
+          coords.push(...gj.geometry.coordinates);
+        }
+      }
+    });
+    exportPolyLayers[cabinetId] = coords;
+    editedCabinetPolygons[cabinetId] = coords;
+    saveEditedCabinetPolygons();
+  }
+  let editedAddresses = JSON.parse(localStorage.getItem("editedAddresses") || "{}");
+  let editedStatuses = JSON.parse(localStorage.getItem("editedStatuses") || "{}");
+  let editedRsh = JSON.parse(localStorage.getItem("editedRsh") || "{}");
+  let editedForceExternal = JSON.parse(localStorage.getItem("editedForceExternal") || "{}")
+  let editedForce1To1 = JSON.parse(localStorage.getItem("editedForce1To1") || "{}")
+  let requestAbonents = JSON.parse(localStorage.getItem("requestAbonents") || "{}")
+  let newAddresses = JSON.parse(localStorage.getItem("newAddresses") || "{}")
+  const abonentVisualState = new Map(); // id -> { polyLayer, lineLayer, kyaRkList, currentRsh, coords }
+  const rkVisualStateByAddressId = new Map(); // id -> {pointLayer}
+  const rkVisualStateByCoord = new Map(); // id -> {pointLayer}
+  let countConnected = 0;
+  let countNotConnected = 0;
+  let countChangedAddress = Object.keys(editedAddresses).length;
+  let countOffline = 0;
+  let countNewOffline = 0;
+  let countPending = 0;
+  let countNewPending = 0;
+  let countUnassignedMultiRsh = 0;
+  let countTotalMultiRsh = 0;
+  async function loadGeoJSON() {
+    await loadEditedCabinetPolygons();
+    const API_URL = 'http://localhost:8000/objects.geojson?limit=50000';
+    const FALLBACK_URL = './objects.geojson';
+
+    // 1️⃣ API (first)
+    try {
+      const response = await fetch(API_URL);
+      if (!response.ok) {
+        throw new Error(`Server responded ${response.status}`);
+      }
+      console.log('✅ Loaded from API');
+      const data = await response.json();
+      originalGeoJSON = data;
+      return data;
+    } catch (apiErr) {
+      console.warn('API failed, trying ZIP/plain fallback', apiErr);
+    }
+
+    // 2️⃣ ZIP fallback
+    try {
+      const zipUrl = FALLBACK_URL + '.zip';
+      const zipResp = await fetch(zipUrl);
+      if (zipResp.ok) {
+        console.log('📦 Found ZIP fallback');
+        const blob = await zipResp.blob();
+        const zip = await JSZip.loadAsync(blob);
+        const fileName = FALLBACK_URL.split('/').pop(); // objects.geojson
+        const file = zip.file(fileName);
+        if (!file) throw new Error('GeoJSON not found in ZIP');
+        const text = await file.async('string');
+        console.log('📁 Loaded from ZIP fallback');
+        const data = JSON.parse(text);
+        originalGeoJSON = data;
+        return data;
+      }
+    } catch (zipErr) {
+      console.warn('ZIP fallback failed, trying plain GeoJSON', zipErr);
+    }
+
+    // 3️⃣ Plain GeoJSON fallback
+    try {
+      const fallbackResponse = await fetch(FALLBACK_URL);
+      if (fallbackResponse.ok) {
+        console.log('📁 Loaded from static GeoJSON');
+        const data = await fallbackResponse.json();
+        originalGeoJSON = data;
+        return data;
+      }
+      throw new Error(`Static GeoJSON responded ${fallbackResponse.status}`);
+    } catch (plainErr) {
+      console.warn('Plain GeoJSON fallback failed, trying API', plainErr);
+    }
+
+    console.error('❌ Failed to load GeoJSON from API, ZIP, and plain');
+    throw new Error('GeoJSON load failed');
+  }
+  const missingPolygons = new Set();
+  const invalidEditedPolygons = new Set();
+  loadGeoJSON()
+    .then(fc => {
+      originalGeoJSON.rk.forEach(f => {
+        if (f.properties?.id) {
+          featureById[f.properties.id] = f;
+        }
+      });
+      for (const f of (fc.other || [])) {
+        if (!f.geometry) continue;
+        const p = f.properties || {};
+        const polyLayer = L.geoJSON(f.geometry, {
+          pane: 'polygon2Pane',
+          style: {
+            color: "black",
+            weight: 2,
+            fillColor: "black",
+            fillOpacity: 0.5
+          }
+        });
+        const popupHtml = `
+          <div class="popup-title">${p.name ?? ""}</div>
+          <div><b>Тип здания:</b> ${p.building_type ?? ""}</div>
+          <hr/>
+          ${editableOtherAddressBlock(p)}
+        `;
+        polyLayer.bindPopup(popupHtml);
+        polyLayer.on("popupopen", e => {
+          const el = e.popup.getElement();
+          if (!el) return;
+          const input = el.querySelector(".addr-input");
+          const btn = el.querySelector(".save-btn");
+          if (!input || !btn) return;
+          input.value = newAddresses[input.dataset.id] ?? "";
+          btn.onclick = () => {
+            const value = input.value.trim();
+            if ((value.match(/,/g) || []).length !== 1) {
+              alert("Адрес должен содержать ровно одну запятую");
+              return;
+            }
+            newAddresses[p.id] = value;
+            localStorage.setItem(
+              "newAddresses",
+              JSON.stringify(newAddresses)
+            );
+            btn.textContent = "✔";
+            setTimeout(() => (btn.textContent = "💾"), 800);
+          };
+        });
+        otherLayer.addLayer(polyLayer);
+      }
+      const groups = new Map(); // rsh -> { items: [], coords: [] }
+      for (const f of (fc.rk || [])) {
+        const p = f.properties || {};
+        const code_rsh = (p.code_rsh ?? '').toString().trim() || 'NO_RSH';
+        const lon = f.geometry?.coordinates?.[0];
+        const lat = f.geometry?.coordinates?.[1];
+        if (typeof lon !== 'number' || typeof lat !== 'number') continue;
+        if (!groups.has(code_rsh)) groups.set(code_rsh, { items: [], coords: [] });
+        groups.get(code_rsh).items.push(p);
+        groups.get(code_rsh).coords.push([lon, lat]);
+      }
+      const abonGroups = new Map(); // rsh -> { items: [], coords: [] }
+      for (const f of (fc.address || [])) {
+        const p = f.properties || {};
+        const rsh = editedRsh[p.id] ?? p.code_rsh ?? [];
+        const col = rsh.length == 1 ? colorForRsh(rsh[0]) : "black";
+        const kyaList = Array.isArray(p.kya_rk)
+          ? p.kya_rk.map(v => String(v).trim()).filter(Boolean)
+          : [];
+        const keys = kyaList.length > 0 ? kyaList : ["NO_KYA_RK"];
+        for (const kya_rk of keys) {
+          if (!abonGroups.has(kya_rk)) {
+            abonGroups.set(kya_rk, { items: [], area: [], coords: [] });
+          }
+          const g = abonGroups.get(kya_rk);
+          g.items.push(p);
+          g.area.push(f.geometry);
+          g.coords.push(p.location.coordinates);
+        }
+        const polyLayer = L.geoJSON(f.geometry, {
+          pane: 'polygon2Pane',
+          style: {
+            color: col,
+            weight: 2,
+            fillColor: col,
+            fillOpacity: 0.5
+          }
+        });
+        if (rsh.length > 1 || editedRsh[p.id]) {
+          const group = groups.get(rsh[0]);
+          const idx = group.items.findIndex(item => keys.includes(item.id));
+          const coord = idx !== -1 ? group.coords[idx] : null;
+          abonentVisualState.set(p.id, {
+            polyLayer,
+            lineLayer: null,
+            kyaRkList: keys,
+            coords: coord,
+            currentRsh: rsh.length == 1 ? rsh : null
+          });
+          if (editedRsh[p.id]) {
+            updateAbonentRshState(abonentVisualState.get(p.id),
+                  editedRsh[p.id],
+                  groups.get(editedRsh[p.id][0]).items[0].coords_rsh);
+          } else countUnassignedMultiRsh += 1;
+        }
+        polyLayer.bindPopup(`
+          <div class="popup-title">${p.street}, ${p.house}</div>
+          ${editableRshBlock(p)}
+          <div>name: ${p.name}</div>
+          <div>id: ${p.id}</div>
+          <div>network_type: ${p.network_type}</div>
+          <div>building_type: ${p.building_type}</div>
+        `);
+        polyLayer.on("popupopen", (e) => {
+          const el = e.popup.getElement();
+          el.querySelectorAll(".rsh-input").forEach(inp => {
+            const id = inp.dataset.id;
+            if (!id) return;
+            inp.value = editedRsh[id]?.[0] ?? "";
+          });
+          el.querySelectorAll(".save-btn").forEach(btn => {
+            btn.onclick = () => {
+              const input = el.querySelector(
+                `.rsh-input[data-id="${btn.dataset.id}"]`
+              );
+              if (!input) return;
+              editedRsh[btn.dataset.id] = [input.value];
+              localStorage.setItem(
+                "editedRsh",
+                JSON.stringify(editedRsh)
+              );
+              state = abonentVisualState.get(btn.dataset.id);
+              updateAbonentRshState(state,
+                input.value,
+                groups.get(input.value).items[0].coords_rsh);
+              btn.textContent = "✔";
+              setTimeout(() => (btn.textContent = "💾"), 800);
+            };
+          });
+          el.querySelectorAll(".one-to-one-btn").forEach(btn => {
+            let isForce1To1 = editedForce1To1[btn.dataset.id] == true;
+            btn.textContent = isForce1To1 ? "Сбросить force_one_to_one флаг" : "Установить force_one_to_one флаг";
+            btn.onclick = () => {
+              isForce1To1 = editedForce1To1[btn.dataset.id] == true;
+              if (isForce1To1) delete editedForce1To1[btn.dataset.id];
+              else editedForce1To1[btn.dataset.id] = true;
+              localStorage.setItem(
+                "editedForce1To1",
+                JSON.stringify(editedForce1To1)
+              );
+              btn.textContent = isForce1To1 ? "Установить force_one_to_one флаг" : "Сбросить force_one_to_one флаг";
+            };
+          });
+        });
+        polyLayer.on("click", (e) => {
+          if (skipMode) {
+            L.DomEvent.stopPropagation(e);
+            if (!selectedLayersStyle.has(polyLayer)) {
+              selectedLayersStyle.set(polyLayer, {
+                fillOpacity: polyLayer.options.style.fillOpacity,
+                weight: polyLayer.options.style.weight,
+                fillColor: polyLayer.options.style.fillColor,
+                color: polyLayer.options.style.color
+              });
+            }
+            if (selectedForSkip.has(p.id)) {
+              selectedForSkip.delete(p.id);
+              const originalStyle = selectedLayersStyle.get(polyLayer);
+              polyLayer.setStyle(originalStyle);
+            } else {
+              selectedForSkip.add(p.id);
+              polyLayer.setStyle({ 
+                fillOpacity: 0.8,
+                weight: 3,
+                fillColor: '#ef4444',
+                color: '#dc2626'
+              });
+            }
+            updateSkipIzhsList();
+          }
+        });
+        if (p.code_rsh.length > 1) multiRshAbonentsLayer.addLayer(polyLayer);
+        if (p.kya_rk.length == 0) nfAbonentsLayer.addLayer(polyLayer);
+        else abonentsLayer.addLayer(polyLayer);
+      }
+      for (const [kya_rk, g] of abonGroups.entries()) {
+        if (kya_rk == "NO_KYA_RK") continue;
+        const center = (fc.rk || []).filter(
+          f => f.properties?.id === kya_rk
+        )[0];
+        const centerLonLat = center.geometry.coordinates;
+        const centerLatLng = [centerLonLat[1], centerLonLat[0]];
+        const spiderIzhsCoords = [];
+        const spiderNonIzhsCoords = [];
+        g.items.forEach((item, idx) => {
+          if (item.address_izhs) {
+            if (!skippedIzhsIds.has(item.id)) {
+              spiderIzhsCoords.push(g.coords[idx]);
+            }
+          } else {
+            spiderNonIzhsCoords.push(g.coords[idx]);
+          }
+        });
+        const spiderIzhs = spiderIzhsCoords.length ? buildSpiderGeoJSON(spiderIzhsCoords, centerLonLat) : null;
+        const spiderNonIzhs = spiderNonIzhsCoords.length ? buildSpiderGeoJSON(spiderNonIzhsCoords, centerLonLat) : null;
+        if (spiderIzhs) {
+          const spiderIzhsLayer = L.geoJSON(spiderIzhs, {
+            pane: 'spider2Pane',
+            style: {
+              color: "black",
+              weight: 2,
+              fillColor: "black",
+              fillOpacity: 0.18,
+              dashArray: "4,4"
+            }
+          });
+          abonentsIzhsSpidersLayer.addLayer(spiderIzhsLayer);
+        }
+        if (spiderNonIzhs) {
+          const spiderNonIzhsLayer = L.geoJSON(spiderNonIzhs, {
+            pane: 'spider2Pane',
+            style: {
+              color: "black",
+              weight: 2,
+              fillColor: "black",
+              fillOpacity: 0.18,
+              dashArray: "4,4"
+            }
+          });
+          abonentsNonIzhsSpidersLayer.addLayer(spiderNonIzhsLayer);
+        }
+      }
+      const coordGroups = new Map();
+      for (const f of (fc.rk || [])) {
+        const p = f.properties || {};
+        const lon = f.geometry?.coordinates?.[0];
+        const lat = f.geometry?.coordinates?.[1];
+        if (typeof lon !== 'number' || typeof lat !== 'number') continue;
+        const coord_key = coordKey([lon, lat]);
+        if (!coordGroups.has(coord_key)) coordGroups.set(coord_key, { items: [], coord: [lon, lat] });
+        coordGroups.get(coord_key).items.push(p);
+      }
+      for (const { items, coord } of coordGroups.values()) {
+        const noConnectionOnInternalRk = items.some(i =>
+          (!Array.isArray(i.address_id) || i.address_id.length === 0) && !i.rk_external
+        );
+        const isOffline = items.every(i =>
+          typeof i.status === "string" &&
+          i.status == "offline"
+        );
+        const isPending = items.every(i =>
+          typeof i.status === "string" &&
+          i.status == "pending"
+        );
+        const codeRshList = [...new Set(
+          items
+            .map(i => i.code_rsh)
+            .filter(v => v != null && v !== "")
+        )];
+        const col = codeRshList.length == 1 ? colorForRsh(items[0].code_rsh) : "black";
+        const latlng = [coord[1], coord[0]];
+        const marker = L.circleMarker(latlng, {
+          pane: "markerPane",
+          radius: items.length > 1 ? 7 : 4,   // больше если сгруппирован
+          weight: 1,
+          color: col,
+          fillColor: col,
+          fillOpacity: 0.85
+        });
+        if (items.length === 1) {
+          const p = items[0];
+          marker.bindPopup(`
+            <div class="popup-title">РК: ${rkLabel(p)}</div>
+            <div><b>РШ:</b> ${p.code_rsh}</div>
+            <div><span class="status" id="${p.id}">${editedStatuses[p.id] ?? p.status}</span> ${p.rk_name}</div>
+            <div>${p.place}</div>
+            <div><b>Р Рљ №:</b> <span class="rk-number-text">${(p.rk_number ?? '').toString()}</span><button class="copy-rk-btn" data-rk="${(p.rk_number ?? '').toString()}">copy</button></div>
+            ${editableAddressBlock(p)}
+            <div class="muted">${p.distance_to_cabinet ?? ''}</div>
+          `);
+        } else {
+          if (codeRshList.length == 1) {
+            marker.bindPopup(`
+              <div class="popup-title">РШ: ${items[0].code_rsh}</div>
+              ${editableAddressBlock(items[0], true)}
+              <div class="muted">📍 ${items.length} объектов в одной точке</div>
+              <hr/>
+              ${items.map(p => `
+                  <div><b>РК:</b> ${rkLabel(p)}. <span class="status" id="${p.id}">${editedStatuses[p.id] ?? p.status}</span> ${p.rk_name}</div>
+                  <div>${p.place}</div>
+                  <div><b>Р Рљ №:</b> <span class="rk-number-text">${(p.rk_number ?? '').toString()}</span><button class="copy-rk-btn" data-rk="${(p.rk_number ?? '').toString()}">copy</button></div>
+                  ${editableAddressBlock(p)}
+                  <div class="muted">${p.distance_to_cabinet ?? ''}</div>
+                  <hr/>
+              `).join("")}
+            `);
+          } else {
+            marker.bindPopup(`
+              <div class="popup-title">Группа РК с разными РШ</div>
+              ${editableAddressBlock(items[0], true)}
+              <div class="muted">📍 ${items.length} объектов в одной точке</div>
+              <div class="muted"><span class="active"></span> active, <span class="inactive"></span> inactive</div>
+              <hr/>
+              ${items.map(p => `
+                  <div><b>РК:</b> ${rkLabel(p)}. <span class="status" id="${p.id}">${editedStatuses[p.id] ?? p.status}</span> ${p.rk_name}</div>
+                  <div>РШ: ${p.code_rsh}</div>
+                  <div>${p.place}</div>
+                  <div><b>Р Рљ №:</b> <span class="rk-number-text">${(p.rk_number ?? '').toString()}</span><button class="copy-rk-btn" data-rk="${(p.rk_number ?? '').toString()}">copy</button></div>
+                  ${editableAddressBlock(p)}
+                  <div class="muted">${p.distance_to_cabinet ?? ''}</div>
+                  <hr/>
+              `).join("")}
+            `);
+            rkVisualStateByAddressId.set(items[0].address_id[0], {pointLayer: marker});
+          }
+        }
+        items.map(i => i.id).forEach(id => {
+          rkCoordById[id] = coord;
+        })
+        rkVisualStateByCoord.set(coord, {pointLayer: marker});
+        items.forEach(p => {
+          const key = (p.rk_number ?? '').toString().trim();
+          if (!key) return;
+          if (!rkMarkerByNumber.has(key)) rkMarkerByNumber.set(key, []);
+          rkMarkerByNumber.get(key).push(marker);
+        });
+        marker.on("popupopen", (e) => {
+          const el = e.popup.getElement();
+          el.querySelectorAll(".copy-rk-btn").forEach(btn => {
+            btn.onclick = async () => {
+              const value = btn.dataset.rk ?? "";
+              if (!value) return;
+              try {
+                if (navigator.clipboard?.writeText) {
+                  await navigator.clipboard.writeText(value);
+                } else {
+                  const ta = document.createElement("textarea");
+                  ta.value = value;
+                  ta.style.position = "fixed";
+                  ta.style.opacity = "0";
+                  document.body.appendChild(ta);
+                  ta.select();
+                  document.execCommand("copy");
+                  document.body.removeChild(ta);
+                }
+                btn.textContent = "ok";
+                setTimeout(() => (btn.textContent = "copy"), 800);
+              } catch {
+                alert("Не удалось скопировать");
+              }
+            };
+          });
+          el.querySelectorAll(".addr-input").forEach(inp => {
+            const id = inp.dataset.id;
+            if (!id) return;
+            inp.value = editedAddresses[id] ?? featureById[id].properties.address;
+          });
+          const count = {active: 0, inactive: 0, offline: 0, pending: 0}
+          el.querySelectorAll(".status").forEach(status => {
+            const id = status.id;
+            const content = editedStatuses[id] ?? featureById[id].properties.status;
+            count[content] += 1;
+            status.textContent = content;
+          });
+          const activeEl = el.querySelector(".active");
+          const inactiveEl = el.querySelector(".inactive");
+          if (activeEl) activeEl.textContent = count.active;
+          if (inactiveEl) inactiveEl.textContent = count.inactive;
+          const globalSaveBtnEl = el.querySelector(".global-save-btn")
+          if (globalSaveBtnEl) globalSaveBtnEl.onclick = (e) => {
+            const btn = e.currentTarget;
+            const input = el.querySelector(".global-addr-input");
+            if (!input) return;
+            el.querySelectorAll(".save-btn").forEach(b => {
+              editedAddresses[b.dataset.id] = input.value;
+            });
+            localStorage.setItem(
+              "editedAddresses",
+              JSON.stringify(editedAddresses)
+            );
+            countChangedAddress = Object.keys(editedAddresses).length;
+            updateCounts();
+            btn.textContent = "✔";
+            setTimeout(() => (btn.textContent = "💾"), 800);
+          };
+          const globalOfflineBtnEl = el.querySelector(".global-offline-btn");
+          if (globalOfflineBtnEl) {
+            const firstBtn = el.querySelector(".offline-btn");
+            let isOffline = firstBtn && editedStatuses[firstBtn.dataset.id] == "offline";
+            globalOfflineBtnEl.textContent = isOffline ? "Сбросить offline статус ВСЕМ" : "Установить offline статус ВСЕМ";
+            globalOfflineBtnEl.onclick = (e) => {
+              isOffline = firstBtn && editedStatuses[firstBtn.dataset.id] == "offline";
+              const btn = e.currentTarget;
+              el.querySelectorAll(".offline-btn").forEach(b => {
+                if (isOffline) delete editedStatuses[b.dataset.id];
+                else editedStatuses[b.dataset.id] = "offline";
+              });
+              localStorage.setItem(
+                "editedStatuses",
+                JSON.stringify(editedStatuses)
+              );
+              countNewOffline = Object.values(editedStatuses).filter(v => v === "offline").length;
+              updateCounts();
+              btn.textContent = isOffline ? "Установить offline статус ВСЕМ" : "Сбросить offline статус ВСЕМ";
+            };
+          }
+          const globalPendingBtnEl = el.querySelector(".global-pending-btn");
+          if (globalPendingBtnEl) {
+            const firstBtn = el.querySelector(".pending-btn");
+            let isPending = firstBtn && editedStatuses[firstBtn.dataset.id] == "pending";
+            globalPendingBtnEl.textContent = isPending ? "Сбросить pending статус ВСЕМ" : "Установить pending статус ВСЕМ";
+            globalPendingBtnEl.onclick = (e) => {
+              isPending = firstBtn && editedStatuses[firstBtn.dataset.id] == "pending";
+              const btn = e.currentTarget;
+              if (isPending) {
+                el.querySelectorAll(".pending-btn").forEach(b => {
+                  delete editedStatuses[b.dataset.id];
+                  delete requestAbonents[b.dataset.id];
+                });
+                localStorage.setItem(
+                  "requestAbonents",
+                  JSON.stringify(requestAbonents)
+                );
+                btn.textContent = "Установить pending статус ВСЕМ";
+              } else {
+                el.querySelectorAll(".pending-btn").forEach(b => {
+                  editedStatuses[b.dataset.id] = "pending";
+                });
+                const clickHandler = function(e) {
+                  const { lat, lng } = e.latlng;
+                  el.querySelectorAll(".pending-btn").forEach(b => {
+                    requestAbonents[b.dataset.id] = { lon: lng, lat };
+                  });
+                  map.off("click", clickHandler);
+                  btn.textContent = "Сбросить pending статус";
+                  localStorage.setItem(
+                    "requestAbonents",
+                    JSON.stringify(requestAbonents)
+                  );
+                };
+                map.on("click", clickHandler);
+              }
+              localStorage.setItem(
+                "editedStatuses",
+                JSON.stringify(editedStatuses)
+              );
+              countNewPending = Object.values(editedStatuses).filter(v => v === "pending").length;
+              updateCounts();
+            };
+          }
+          el.querySelectorAll(".save-btn").forEach(btn => {
+            btn.onclick = () => {
+              const input = el.querySelector(
+                `.addr-input[data-id="${btn.dataset.id}"]`
+              );
+              if (!input) return;
+              editedAddresses[btn.dataset.id] = input.value;
+              localStorage.setItem(
+                "editedAddresses",
+                JSON.stringify(editedAddresses)
+              );
+              btn.textContent = "✔";
+              countChangedAddress = Object.keys(editedAddresses).length;
+              updateCounts();
+              setTimeout(() => (btn.textContent = "💾"), 800);
+            };
+          });
+          el.querySelectorAll(".offline-btn").forEach(btn => {
+            let isOffline = editedStatuses[btn.dataset.id] == "offline";
+            btn.textContent = isOffline ? "Сбросить offline статус" : "Установить offline статус";
+            btn.onclick = () => {
+              isOffline = editedStatuses[btn.dataset.id] == "offline";
+              if (isOffline) delete editedStatuses[btn.dataset.id];
+              else editedStatuses[btn.dataset.id] = "offline";
+              localStorage.setItem(
+                "editedStatuses",
+                JSON.stringify(editedStatuses)
+              );
+              countNewOffline = Object.values(editedStatuses).filter(v => v === "offline").length;
+              updateCounts();
+              btn.textContent = isOffline ? "Установить offline статус" : "Сбросить offline статус";
+            };
+          });
+          el.querySelectorAll(".external-btn").forEach(btn => {
+            let isForceExternal = editedForceExternal[btn.dataset.id] == true;
+            btn.textContent = isForceExternal ? "Сбросить force_external флаг" : "Установить force_external флаг";
+            btn.onclick = () => {
+              isForceExternal = editedForceExternal[btn.dataset.id] == true;
+              if (isForceExternal) delete editedForceExternal[btn.dataset.id];
+              else editedForceExternal[btn.dataset.id] = true;
+              localStorage.setItem(
+                "editedForceExternal",
+                JSON.stringify(editedForceExternal)
+              );
+              btn.textContent = isForceExternal ? "Установить force_external флаг" : "Сбросить force_external флаг";
+            };
+          });
+          el.querySelectorAll(".pending-btn").forEach(btn => {
+            let isPending = editedStatuses[btn.dataset.id] == "pending";
+            btn.textContent = isPending ? "Сбросить pending статус" : "Установить pending статус";
+            btn.onclick = () => {
+              isPending = editedStatuses[btn.dataset.id] == "pending";
+              if (isPending) {
+                delete editedStatuses[btn.dataset.id];
+                delete requestAbonents[btn.dataset.id];
+                localStorage.setItem(
+                  "requestAbonents",
+                  JSON.stringify(requestAbonents)
+                );
+                btn.textContent = "Установить pending статус";
+              }
+              else {
+                editedStatuses[btn.dataset.id] = "pending";
+                const clickHandler = function(e) {
+                  const { lat, lng } = e.latlng;
+                  requestAbonents[btn.dataset.id] = { lon: lng, lat };
+                  map.off("click", clickHandler);
+                  btn.textContent = "Сбросить pending статус";
+                  localStorage.setItem(
+                    "requestAbonents",
+                    JSON.stringify(requestAbonents)
+                  );
+                };
+                map.on("click", clickHandler);
+              }
+              localStorage.setItem(
+                "editedStatuses",
+                JSON.stringify(editedStatuses)
+              );
+              countNewPending = Object.values(editedStatuses).filter(v => v === "pending").length;
+              updateCounts();
+            };
+          });
+        });
+        if (codeRshList.length > 1) {
+          multiRshPointsLayer.addLayer(marker);
+          countTotalMultiRsh += 1;
+        }
+        if (isOffline) {
+          offlinePointsLayer.addLayer(marker);
+          countOffline += items.length;
+        }
+        else if (isPending) {
+          pendingPointsLayer.addLayer(marker);
+          countPending += items.length;
+        }
+        else if (noConnectionOnInternalRk) {
+          noConnectionPointsLayer.addLayer(marker);
+          countNotConnected += items.length;
+        }
+        else {
+          pointsLayer.addLayer(marker);
+          countConnected += items.length;
+        }
+      }
+      for (const [rsh, g] of groups.entries()) {
+        const col = colorForRsh(rsh);
+        const allCoords = [];
+        allCoords.push(g.items[0].coords_rsh);
+        const spiderIzhsCoords = [];
+        const spiderNonIzhsCoords = [];
+        const spiderNonIzhsAreas = [];
+        g.items.forEach((item, idx) => {
+          if (item.status == "offline") return;
+          abonG = abonGroups.get(item.id);
+          if (!item.rk_external) {
+            if (abonG) {
+              const abonentCodeRsh = abonG.items[0].code_rsh;
+              if (abonentCodeRsh.length == 1 && item.code_rsh == abonentCodeRsh[0]) {
+                spiderNonIzhsCoords.push(g.coords[idx]);
+                for (const area of abonG.area) spiderNonIzhsAreas.push(area);
+              }
+            } else spiderNonIzhsCoords.push(g.coords[idx]);
+          }
+          else {
+            if (!skippedIzhsIds.has(item.id)) {
+              spiderIzhsCoords.push(g.coords[idx]);
+            }
+            allCoords.push(g.coords[idx]);
+          }
+          if (!abonG) return;
+          if (item.rk_external) abonG.items.forEach((abonItem, idy) => {
+            if (!skippedIzhsIds.has(abonItem.id)) allCoords.push(...extractLonLatPairs(abonG.area[idy].coordinates));
+          });
+        });
+        let poly = buildGroupPolygonGeoJSON(allCoords);
+        if (!poly) {
+          missingPolygons.add(g.items[0].cabinet_id);
+          continue;
+        }
+        const editedCoords = getEditedPolyCoords(g.items[0].cabinet_id);
+        if (editedCoords && editedCoords.length > 0) {
+          const editedGeo = buildGeoJsonFromCoords(editedCoords);
+          if (editedGeo) {
+            poly = editedGeo;
+          } else {
+            invalidEditedPolygons.add(g.items[0].cabinet_id);
+          }
+        }
+        const polyLayer = L.geoJSON(poly, {
+          pane: 'polygon1Pane',
+          style: {
+            color: col,
+            weight: 2,
+            fillColor: col,
+            fillOpacity: 0.18
+          }
+        });
+        let geom = null;
+        for (const g of spiderNonIzhsAreas) {
+          if (!g) continue;
+          try {
+            geom = geom ? turf.union(geom, g) : g;
+          } catch (e) {
+            console.warn('Union failed for spider area', e);
+          }
+        }
+        if (allCoords.length != 1 && poly && poly.geometry) {
+          try {
+            geom = geom ? turf.union(geom, poly.geometry) : poly.geometry;
+          } catch (e) {
+            console.warn('Union failed for polygon geometry', e);
+            if (!geom) geom = poly.geometry;
+          }
+        }
+        const coordsForExport =
+          editedCoords && editedCoords.length > 0
+            ? editedCoords
+            : geom
+              ? geom.type === "MultiPolygon" || geom.geometry?.type === "MultiPolygon"
+                ? geom.geometry?.coordinates ?? geom.coordinates
+                : [geom.geometry?.coordinates ?? geom.coordinates]
+              : [];
+        exportPolyLayers[g.items[0].cabinet_id] = coordsForExport;
+        const popupHtml = popupHtmlForRsh(rsh, g.items);
+        polyLayer.eachLayer(layer => {
+          layer._cabinetId = g.items[0].cabinet_id;
+          layer._rsh = rsh;
+          layer.bindPopup(popupHtml);
+          layer.on('edit', () => updateExportPolyForCabinet(layer._cabinetId));
+          layer.on('click', (e) => {
+            if (!isRshEditMode) return;
+            if (e.originalEvent) {
+              e.originalEvent.preventDefault();
+              e.originalEvent.stopPropagation();
+            }
+            if (selectedRshLayer !== layer) {
+              selectRshLayer(layer);
+              return;
+            }
+            insertVertexOnBoundary(layer, e.latlng);
+          });
+          polygonsLayer.addLayer(layer);
+        });
+        const centerLonLat = g.items[0].coords_rsh;
+        const centerLatLng = [centerLonLat[1], centerLonLat[0]];
+        const spiderIzhs = spiderIzhsCoords.length ? buildSpiderGeoJSON(spiderIzhsCoords, centerLonLat) : null;
+        const spiderNonIzhs = spiderNonIzhsCoords.length ? buildSpiderGeoJSON(spiderNonIzhsCoords, centerLonLat) : null;
+        if (spiderIzhs) {
+          const spiderIzhsLayer = L.geoJSON(spiderIzhs, {
+            pane: 'spider1Pane',
+            style: {
+              color: col,
+              weight: 2,
+              fillColor: col,
+              fillOpacity: 0.18
+            }
+          });
+          izhsSpidersLayer.addLayer(spiderIzhsLayer);
+        }
+        if (spiderNonIzhs) {
+          const spiderNonIzhsLayer = L.geoJSON(spiderNonIzhs, {
+            pane: 'spider1Pane',
+            style: {
+              color: col,
+              weight: 2,
+              fillColor: col,
+              fillOpacity: 0.18
+            }
+          });
+          nonIzhsSpidersLayer.addLayer(spiderNonIzhsLayer);
+        }
+        const label = L.marker(centerLatLng, {
+          icon: L.divIcon({
+            className: '',
+            html: `<div class="rsh-label"><b>${rsh}</b> · ${g.items.length}</div>`
+          })
+        });
+        label.bindPopup(popupHtml);
+        centersLayer.addLayer(label);
+      }
+      const allLatLng = [];
+      for (const [_, g] of groups.entries()) {
+        for (const c of g.coords) allLatLng.push([c[1], c[0]]);
+      }
+      if (allLatLng.length) map.fitBounds(L.latLngBounds(allLatLng).pad(0.1));
+      applyZoomVisibility();
+      countNewOffline = Object.values(editedStatuses).filter(v => v === "offline").length;
+      countNewPending = Object.values(editedStatuses).filter(v => v === "pending").length;
+      updateCounts();
+      if (missingPolygons.size > 0) {
+        console.warn('Missing polygons (cabinet_id):', Array.from(missingPolygons));
+      }
+      if (invalidEditedPolygons.size > 0) {
+        console.warn('Invalid edited polygons (cabinet_id):', Array.from(invalidEditedPolygons));
+      }
+    })
+    .catch(err => console.error(err));
+  const POLYGONS_STORAGE_KEY = 'savedPolygons';
+  const drawnPolygonsLayer = L.layerGroup().addTo(map);
+  let editableLayers = new L.FeatureGroup();
+  map.addLayer(editableLayers);
+  let isDrawingMode = false;
+  let currentDrawnLayer = null;
+  let isRshEditMode = false;
+  let selectedRshLayer = null;
+  let selectedRshStyle = null;
+  const vertexMarkers = new Map(); // layer -> [marker]
+  const layerHistory = new Map(); // layer -> [ring snapshots]
+  const MANUAL_VERTEX_ICON = L.divIcon({
+    className: 'manual-vertex-icon',
+    iconSize: [10, 10],
+    iconAnchor: [5, 5]
+  });
+  function refreshLayerEditing(layer) {
+    if (layer && layer.editing && layer.editing._enabled) {
+      layer.editing.disable();
+      layer.editing.enable();
+    }
+  }
+  function cloneLatLngs(latlngs) {
+    if (latlngs instanceof L.LatLng) return L.latLng(latlngs.lat, latlngs.lng);
+    if (Array.isArray(latlngs)) return latlngs.map(cloneLatLngs);
+    return latlngs;
+  }
+  function getOuterRings(latlngs) {
+    if (!Array.isArray(latlngs) || latlngs.length === 0) return [];
+    if (latlngs[0] instanceof L.LatLng) {
+      return [{ polyIndex: 0, ringIndex: 0, ring: latlngs }];
+    }
+    if (Array.isArray(latlngs[0]) && latlngs[0][0] instanceof L.LatLng) {
+      return [{ polyIndex: 0, ringIndex: 0, ring: latlngs[0] }];
+    }
+    if (Array.isArray(latlngs[0]) && Array.isArray(latlngs[0][0])) {
+      return latlngs.map((poly, polyIndex) => ({
+        polyIndex,
+        ringIndex: 0,
+        ring: poly[0]
+      }));
+    }
+    return [];
+  }
+  function setVertexMarkers(layer, latlngs) {
+    const prev = vertexMarkers.get(layer) || [];
+    prev.forEach(m => map.removeLayer(m));
+    vertexMarkers.set(layer, []);
+    const rings = getOuterRings(latlngs);
+    if (rings.length === 0) return;
+    const markers = [];
+    rings.forEach(({ polyIndex, ringIndex, ring }) => {
+      if (!ring || ring.length === 0) return;
+      const isClosed = ring.length > 1 && ring[0].equals(ring[ring.length - 1]);
+      const usableRing = isClosed ? ring.slice(0, -1) : ring;
+      usableRing.forEach((p, idx) => {
+        const marker = L.marker(p, { draggable: true, icon: MANUAL_VERTEX_ICON, pane: 'vertexPane', zoomAnimation: false });
+        marker._polyIndex = polyIndex;
+        marker._ringIndex = ringIndex;
+        marker._pointIndex = idx;
+        marker.on('dragstart', () => pushHistory(layer));
+        marker.on('drag', e => {
+          const live = layer.getLatLngs();
+          if (!live) return;
+          const poly = Array.isArray(live[0]) && Array.isArray(live[0][0])
+            ? live[marker._polyIndex]
+            : live;
+          const ringLive = Array.isArray(poly[0]) ? poly[marker._ringIndex] : poly;
+          ringLive[marker._pointIndex] = e.target.getLatLng();
+          if (isClosed && marker._pointIndex === 0) {
+            ringLive[ringLive.length - 1] = e.target.getLatLng();
+          }
+          layer.setLatLngs(live);
+          layer.redraw();
+        });
+        marker.on('dragend', () => updateExportPolyForCabinet(layer._cabinetId));
+        marker.on('dblclick', e => {
+          if (e.originalEvent) {
+            e.originalEvent.preventDefault();
+            e.originalEvent.stopPropagation();
+          }
+          const live = layer.getLatLngs();
+          if (!live) return;
+          const poly = Array.isArray(live[0]) && Array.isArray(live[0][0])
+            ? live[marker._polyIndex]
+            : live;
+          const ringLive = Array.isArray(poly[0]) ? poly[marker._ringIndex] : poly;
+          const minPoints = isClosed ? 4 : 3;
+          if (ringLive.length <= minPoints) return;
+          pushHistory(layer);
+          ringLive.splice(marker._pointIndex, 1);
+          if (isClosed && marker._pointIndex === 0) {
+            ringLive[ringLive.length - 1] = ringLive[0];
+          }
+          layer.setLatLngs(live);
+          layer.redraw();
+          setVertexMarkers(layer, live);
+          updateExportPolyForCabinet(layer._cabinetId);
+        });
+        markers.push(marker);
+      });
+    });
+    markers.forEach(m => m.addTo(map));
+    vertexMarkers.set(layer, markers);
+  }
+  function clearVertexMarkers(layer) {
+    const prev = vertexMarkers.get(layer) || [];
+    prev.forEach(m => map.removeLayer(m));
+    vertexMarkers.delete(layer);
+  }
+  function pushHistory(layer) {
+    if (!layer) return;
+    const rings = layer.getLatLngs();
+    if (!rings) return;
+    if (!layerHistory.has(layer)) layerHistory.set(layer, []);
+    layerHistory.get(layer).push(cloneLatLngs(rings));
+  }
+  function undoSelectedPolygon() {
+    if (!selectedRshLayer) {
+      alert('Сначала выберите полигон (клик по полигону).');
+      return;
+    }
+    const stack = layerHistory.get(selectedRshLayer);
+    if (!stack || stack.length === 0) {
+      alert('Нет действий для отмены.');
+      return;
+    }
+    const prevRing = stack.pop();
+    selectedRshLayer.setLatLngs(prevRing);
+    selectedRshLayer.redraw();
+    setVertexMarkers(selectedRshLayer, prevRing);
+    updateExportPolyForCabinet(selectedRshLayer._cabinetId);
+  }
+  function insertVertexOnBoundary(layer, latlng) {
+    if (!layer || !latlng || !layer.getLatLngs) return;
+    const rings = layer.getLatLngs();
+    const outerRings = getOuterRings(rings);
+    if (!outerRings.length) return;
+    const clickPoint = map.latLngToLayerPoint(latlng);
+    let best = null;
+    outerRings.forEach(({ polyIndex, ringIndex, ring }) => {
+      if (!ring || ring.length < 2) return;
+      for (let i = 0; i < ring.length - 1; i++) {
+        const p1 = map.latLngToLayerPoint(ring[i]);
+        const p2 = map.latLngToLayerPoint(ring[i + 1]);
+        const dist = L.LineUtil.pointToSegmentDistance(clickPoint, p1, p2);
+        if (!best || dist < best.dist) {
+          best = { dist, polyIndex, ringIndex, insertAt: i + 1 };
+        }
+      }
+    });
+    const MAX_PX_DIST = 12;
+    if (!best || best.dist > MAX_PX_DIST) return;
+    pushHistory(layer);
+    const live = layer.getLatLngs();
+    const poly = Array.isArray(live[0]) && Array.isArray(live[0][0])
+      ? live[best.polyIndex]
+      : live;
+    const ringLive = Array.isArray(poly[0]) ? poly[best.ringIndex] : poly;
+    ringLive.splice(best.insertAt, 0, latlng);
+    layer.setLatLngs(live);
+    layer.redraw();
+    setVertexMarkers(layer, live);
+    updateExportPolyForCabinet(layer._cabinetId);
+  }
+  function selectRshLayer(layer) {
+    if (!layer) return;
+    if (selectedRshLayer && selectedRshLayer !== layer) {
+      if (selectedRshStyle) selectedRshLayer.setStyle(selectedRshStyle);
+      clearVertexMarkers(selectedRshLayer);
+    }
+    selectedRshLayer = layer;
+    selectedRshStyle = {
+      color: layer.options.style?.color || layer.options.color,
+      weight: layer.options.style?.weight || layer.options.weight,
+      fillColor: layer.options.style?.fillColor || layer.options.fillColor,
+      fillOpacity: layer.options.style?.fillOpacity || layer.options.fillOpacity
+    };
+    polygonsLayer.eachLayer(l => {
+      if (l && l._cabinetId === layer._cabinetId && l.bringToFront) {
+        l.bringToFront();
+      }
+    });
+    layer.setStyle({
+      color: '#f59e0b',
+      weight: 3,
+      fillColor: '#f59e0b',
+      fillOpacity: 0.25
+    });
+    const rings = layer.getLatLngs();
+    if (Array.isArray(rings) && rings.length > 0) setVertexMarkers(layer, rings);
+  }
+  function enableRshEditMode() {
+    if (isRshEditMode) return;
+    isRshEditMode = true;
+    if (isDrawingMode) cancelDrawing();
+    const btn = document.getElementById('editRshPolygonsBtn');
+    btn.classList.add('active');
+    btn.textContent = '✅ Завершить редактирование РК';
+  }
+  function disableRshEditMode() {
+    if (!isRshEditMode) return;
+    isRshEditMode = false;
+    const btn = document.getElementById('editRshPolygonsBtn');
+    btn.classList.remove('active');
+    btn.textContent = '✏️ Редактировать РК полигоны';
+    if (selectedRshLayer) {
+      if (selectedRshStyle) selectedRshLayer.setStyle(selectedRshStyle);
+      clearVertexMarkers(selectedRshLayer);
+      selectedRshLayer = null;
+      selectedRshStyle = null;
+    }
+  }
+  function loadSavedPolygons() {
+    try {
+      const stored = localStorage.getItem(POLYGONS_STORAGE_KEY);
+      return stored ? JSON.parse(stored) : [];
+    } catch (e) {
+      console.error('Error loading polygons:', e);
+      return [];
+    }
+  }
+  function saveSavedPolygonsToStorage(polygons) {
+    try {
+      localStorage.setItem(POLYGONS_STORAGE_KEY, JSON.stringify(polygons));
+    } catch (e) {
+      console.error('Error saving polygons:', e);
+    }
+  }
+  function addPolygonToMap(polygon, isTemporary = false) {
+    const layer = L.geoJSON(polygon.geometry, {
+      style: {
+        color: isTemporary ? '#ff7e00' : '#10b981',
+        weight: 2,
+        fillColor: isTemporary ? '#ff7e00' : '#10b981',
+        fillOpacity: isTemporary ? 0.3 : 0.15
+      }
+    });
+    if (!isTemporary && polygon.name) {
+      let popupContent = `<div style="font-weight: bold;">${polygon.name}</div>`;
+      popupContent += `<small>${new Date(polygon.timestamp).toLocaleString('ru-RU')}</small>`;
+      layer.bindPopup(popupContent);
+    }
+    if (isTemporary) {
+      currentDrawnLayer = layer;
+      editableLayers.addLayer(layer);
+    } else {
+      drawnPolygonsLayer.addLayer(layer);
+    }
+    return layer;
+  }
+  function updatePolygonsList() {
+    const polygons = loadSavedPolygons();
+    const listDiv = document.getElementById('polygonsList');
+    listDiv.innerHTML = '';
+    if (polygons.length === 0) {
+      listDiv.innerHTML = '<div style="color: #9ca3af; font-size: 12px;">Нет сохраненных полигонов</div>';
+      document.getElementById('polygonsPanel').style.display = 'none';
+      return;
+    }
+    document.getElementById('polygonsPanel').style.display = 'block';
+    polygons.forEach((polygon, idx) => {
+      const item = document.createElement('div');
+      item.className = 'polygon-item';
+      const info = document.createElement('span');
+      const timestamp = new Date(polygon.timestamp).toLocaleString('ru-RU');
+      const name = polygon.name || `Полигон #${idx + 1}`;
+      info.textContent = `${name} (${timestamp})`;
+      const buttonsDiv = document.createElement('div');
+      const deleteBtn = document.createElement('button');
+      deleteBtn.textContent = '🗑️ Удалить';
+      deleteBtn.onclick = () => deletePolygon(idx, name);
+      const viewBtn = document.createElement('button');
+      viewBtn.textContent = '👁️ Показать';
+      viewBtn.onclick = () => focusPolygon(polygon);
+      buttonsDiv.appendChild(viewBtn);
+      buttonsDiv.appendChild(deleteBtn);
+      item.appendChild(info);
+      item.appendChild(buttonsDiv);
+      listDiv.appendChild(item);
+    });
+  }
+  function deletePolygon(idx, name) {
+    const polygons = loadSavedPolygons();
+    const displayName = name || `Полигон #${idx + 1}`;
+    if (confirm(`Удалить "${displayName}"?`)) {
+      polygons.splice(idx, 1);
+      saveSavedPolygonsToStorage(polygons);
+      redrawAllPolygons();
+      updatePolygonsList();
+    }
+  }
+  function focusPolygon(polygon) {
+    const geoJsonLayer = L.geoJSON(polygon.geometry);
+    const bounds = geoJsonLayer.getBounds();
+    if (bounds.isValid()) {
+      map.fitBounds(bounds.pad(0.1));
+    }
+  }
+  function redrawAllPolygons() {
+    drawnPolygonsLayer.clearLayers();
+    const polygons = loadSavedPolygons();
+    polygons.forEach(polygon => {
+      addPolygonToMap(polygon, false);
+    });
+  }
+  function startDrawingMode() {
+    if (isRshEditMode) disableRshEditMode();
+    isDrawingMode = true;
+    editableLayers.clearLayers();
+    currentDrawnLayer = null;
+    document.getElementById('drawPolygonBtn').classList.add('active');
+    document.getElementById('savePolygonBtn').style.display = 'inline-block';
+    document.getElementById('cancelDrawingBtn').style.display = 'inline-block';
+    const drawControl = new L.Control.Draw({
+      position: 'topleft',
+      draw: {
+        polygon: true,
+        polyline: false,
+        rectangle: true,
+        circle: false,
+        marker: false,
+        circlemarker: false
+      },
+      edit: false
+    });
+    map.addControl(drawControl);
+    map.drawControl = drawControl;
+    map.on('draw:created', function(e) {
+      const layer = e.layer;
+      editableLayers.addLayer(layer);
+      currentDrawnLayer = layer;
+    });
+    map.on('draw:edited', function(e) {
+      currentDrawnLayer = e.layers.getLayers()[0];
+    });
+  }
+  function cancelDrawing() {
+    isDrawingMode = false;
+    editableLayers.clearLayers();
+    currentDrawnLayer = null;
+    document.getElementById('drawPolygonBtn').classList.remove('active');
+    document.getElementById('savePolygonBtn').style.display = 'none';
+    document.getElementById('cancelDrawingBtn').style.display = 'none';
+    if (map.drawControl) {
+      map.removeControl(map.drawControl);
+      map.drawControl = null;
+    }
+    map.off('draw:created');
+    map.off('draw:edited');
+  }
+  function saveCurrentPolygon() {
+    if (!currentDrawnLayer) {
+      alert('Нет нарисованного полигона для сохранения');
+      return;
+    }
+    document.getElementById('polygonSaveModal').classList.add('active');
+    document.getElementById('polygonStreet').value = '';
+    document.getElementById('polygonHouse').value = '';
+    document.getElementById('polygonBuildingType').value = '';
+    document.getElementById('polygonPurpose').value = '';
+    document.getElementById('polygonStreet').focus();
+  }
+  function confirmPolygonSave() {
+    const street = document.getElementById('polygonStreet').value.trim();
+    const house = document.getElementById('polygonHouse').value.trim();
+    if (!street) {
+      alert('Поле "Улица" обязательно');
+      document.getElementById('polygonStreet').focus();
+      return;
+    }
+    if (!house) {
+      alert('Поле "Дом" обязательно');
+      document.getElementById('polygonHouse').focus();
+      return;
+    }
+    const buildingType = document.getElementById('polygonBuildingType').value;
+    const purpose = document.getElementById('polygonPurpose').value;
+    const geoJson = currentDrawnLayer.toGeoJSON();
+    const polygon = {
+      id: Date.now(),
+      timestamp: new Date().toISOString(),
+      name: `${street}, ${house}`,
+      address: `${street}, ${house}`,
+      street: street,
+      house: house,
+      building_type: buildingType,
+      purpose: purpose,
+      geometry: geoJson.geometry,
+      type: 'custom'
+    };
+    const polygons = loadSavedPolygons();
+    polygons.push(polygon);
+    saveSavedPolygonsToStorage(polygons);
+    addPolygonToMap(polygon, false);
+    updatePolygonsList();
+    cancelDrawing();
+    document.getElementById('polygonSaveModal').classList.remove('active');
+    alert('Полигон "' + polygon.name + '" сохранен!');
+  }
+  function cancelPolygonSave() {
+    document.getElementById('polygonSaveModal').classList.remove('active');
+  }
+  function exportPolygons() {
+    const polygons = loadSavedPolygons();
+    if (polygons.length === 0) {
+      alert('Нет сохраненных полигонов для выгрузки');
+      return;
+    }
+    const features = polygons.map(p => ({
+      type: 'Feature',
+      properties: {
+        id: p.id,
+        timestamp: p.timestamp,
+        name: p.name,
+        address: p.address,
+        street: p.street || '',
+        house: p.house || '',
+        building_type: p.building_type || '',
+        purpose: p.purpose || '',
+        type: p.type
+      },
+      geometry: p.geometry
+    }));
+    const geoJsonData = {
+      type: 'FeatureCollection',
+      features: features
+    };
+    const blob = new Blob(
+      [JSON.stringify(geoJsonData, null, 2)],
+      { type: 'application/geo+json;charset=utf-8;' }
+    );
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `polygons_${new Date().toISOString().split('T')[0]}.geojson`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+  function polygonCentroid(coords) {
+    if (coords.length < 3) return null;
+    let pts = coords.slice();
+    if (JSON.stringify(pts[0]) !== JSON.stringify(pts[pts.length - 1])) {
+      pts.push(pts[0]);
+    }
+    let A = 0, Cx = 0, Cy = 0;
+    for (let i = 0; i < pts.length - 1; i++) {
+      const [x0, y0] = pts[i];
+      const [x1, y1] = pts[i + 1];
+      const cross = x0 * y1 - x1 * y0;
+      A += cross;
+      Cx += (x0 + x1) * cross;
+      Cy += (y0 + y1) * cross;
+    }
+    A *= 0.5;
+    if (Math.abs(A) < 1e-12) {
+      const xs = coords.map(p => p[0]);
+      const ys = coords.map(p => p[1]);
+      return [xs.reduce((a, b) => a + b) / xs.length, ys.reduce((a, b) => a + b) / ys.length];
+    }
+    return [Cx / (6 * A), Cy / (6 * A)];
+  }
+  function coordsToWKTPolygon(rings) {
+    const parts = rings.map(ring => {
+      const pts = ring.map(p => `${p[0]} ${p[1]}`).join(',');
+      return `(${pts})`;
+    }).join(',');
+    return `POLYGON(${parts})`;
+  }
+  async function exportPolygonsCSV() {
+    const polygons = loadSavedPolygons();
+    if (polygons.length === 0) {
+      alert('Нет сохраненных полигонов для выгрузки');
+      return;
+    }
+    function generateUUID() {
+      return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+        const r = Math.random() * 16 | 0;
+        const v = c === 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+      });
+    }
+    let defaultClusterId = '';
+    try {
+      const res = await fetch('../backend/addresses_ridder.csv');
+      const text = await res.text();
+      const lines = text.split('\n');
+      if (lines.length > 1) {
+        const header = lines[0].split(',');
+        const firstRow = lines[1].split(',');
+        const clusterIdx = header.indexOf('cluster_id');
+        if (clusterIdx >= 0) defaultClusterId = firstRow[clusterIdx] || '';
+      }
+    } catch (e) {
+      console.warn('Could not read addresses_ridder.csv:', e);
+    }
+    const rows = [];
+    rows.push([
+      'source_file', 'id', 'name', 'locality', 'region', 'location', 'area', 'district',
+      'street', 'house', 'network_type', 'building_type', 'purpose', 'residential_complex',
+      'res_completed', 'houses_count', 'apartments_count', 'floors_count', 'porch_count', 'cluster_id'
+    ]);
+    polygons.forEach(p => {
+      let centroid = null;
+      let wktArea = '';
+      if (p.geometry && p.geometry.type === 'Polygon') {
+        const coords = p.geometry.coordinates[0]; // exterior ring
+        centroid = polygonCentroid(coords);
+        wktArea = coordsToWKTPolygon(p.geometry.coordinates);
+      }
+      const locationWKT = centroid ? `POINT (${centroid[0].toFixed(6)} ${centroid[1].toFixed(6)})` : '';
+      const street = (p.street || '').trim();
+      const house = (p.house || '').trim();
+      const name = street && house ? `${street}, ${house}` : (street || house || p.name || '');
+      const residentialComplex = street && house ? `Риддер, ${street}, ${house}` : '';
+      rows.push([            //ХАРДКОД
+        '',
+        'manual' + generateUUID(),
+        name,
+        'Риддер',
+        'Восточно-Казахстанская область',
+        locationWKT,
+        wktArea,
+        '',
+        street,
+        house,
+        'ГТС',
+        p.building_type || '',
+        p.purpose || '',
+        residentialComplex,
+        '',
+        '',
+        '',
+        '',
+        '',
+        defaultClusterId
+      ]);
+    });
+    const csvContent = rows.map(row => 
+      row.map(cell => {
+        const s = String(cell);
+        if (s.includes(',') || s.includes('"') || s.includes('\n')) {
+          return `"${s.replace(/"/g, '""')}"`;
+        }
+        return s;
+      }).join(',')
+    ).join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `polygons_${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+  document.getElementById('drawPolygonBtn').onclick = () => {
+    if (isDrawingMode) {
+      cancelDrawing();
+    } else {
+      startDrawingMode();
+    }
+  };
+  document.getElementById('rkSearchBtn').onclick = () => {
+    const input = document.getElementById('rkSearchInput');
+    searchRkByNumber(input?.value);
+  };
+  document.getElementById('rkSearchInput').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') searchRkByNumber(e.currentTarget?.value);
+  });
+  document.getElementById('editRshPolygonsBtn').onclick = () => {
+    if (isRshEditMode) {
+      disableRshEditMode();
+    } else {
+      enableRshEditMode();
+    }
+  };
+  document.getElementById('undoRshPolygonBtn').onclick = undoSelectedPolygon;
+  document.getElementById('exportEditedPolygonsBtn').onclick = () => {
+    const blob = new Blob(
+      [JSON.stringify(editedCabinetPolygons, null, 2)],
+      { type: "application/json;charset=utf-8;" }
+    );
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "edited_polygons.json";
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+  document.getElementById('savePolygonBtn').onclick = saveCurrentPolygon;
+  document.getElementById('cancelDrawingBtn').onclick = cancelDrawing;
+  document.getElementById('exportPolygonsBtn').onclick = exportPolygons;
+  document.getElementById('exportPolygonsCSVBtn').onclick = exportPolygonsCSV;
+  document.getElementById('polygonSaveConfirmBtn').onclick = confirmPolygonSave;
+  document.getElementById('polygonSaveCancelBtn').onclick = cancelPolygonSave;
+  updatePolygonsList();
+  redrawAllPolygons();
+  let skipMode = false;
+  const selectedForSkip = new Set();
+  const selectedLayersStyle = new Map(); // Store original style for each layer
+  function updateSkipIzhsList() {
+    const listDiv = document.getElementById('skipIzhsList');
+    listDiv.innerHTML = '';
+    if (selectedForSkip.size === 0) {
+      listDiv.innerHTML = '<div style="color: #9ca3af; font-size: 12px;">Нажимайте на здания на карте, чтобы их выбрать</div>';
+      return;
+    }
+    Array.from(selectedForSkip).forEach(id => {
+      const item = document.createElement('div');
+      item.className = 'skip-item';
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.className = 'skip-checkbox';
+      checkbox.checked = true;
+      const label = document.createElement('span');
+      label.textContent = `ID: ${id}`;
+      checkbox.onchange = () => {
+        if (!checkbox.checked) {
+          selectedForSkip.delete(id);
+          updateSkipIzhsList();
+        }
+      };
+      item.appendChild(checkbox);
+      item.appendChild(label);
+      listDiv.appendChild(item);
+    });
+    const countLabel = document.createElement('div');
+    countLabel.style.cssText = 'margin-top: 12px; padding-top: 8px; border-top: 1px solid #d1d5db; font-weight: 600; color: #dc2626;';
+    countLabel.textContent = `Выбрано: ${selectedForSkip.size} здание(й)`;
+    listDiv.appendChild(countLabel);
+  }
+  function toggleSkipMode() {
+    skipMode = !skipMode;
+    const btn = document.getElementById('skipIzhsBtn');
+    const panel = document.getElementById('skipIzhsPanel');
+    if (skipMode) {
+      btn.classList.add('active');
+      panel.style.display = 'block';
+      selectedForSkip.clear();
+      selectedLayersStyle.clear();
+      updateSkipIzhsList();
+    } else {
+      btn.classList.remove('active');
+      panel.style.display = 'none';
+      selectedLayersStyle.forEach((originalStyle, layer) => {
+        layer.setStyle(originalStyle);
+      });
+      selectedForSkip.clear();
+      selectedLayersStyle.clear();
+    }
+  }
+  async function saveSkippedIzhs() {
+    if (selectedForSkip.size === 0) {
+      alert('Пожалуйста, выберите хотя бы одно здание');
+      return;
+    }
+    try {
+      const baseUrl = window.location.origin.includes('localhost') || window.location.origin.includes('127.0.0.1')
+        ? 'http://localhost:8000'
+        : window.location.origin;
+      const response = await fetch(`${baseUrl}/skip-izhs`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ids: Array.from(selectedForSkip)
+        })
+      });
+      if (!response.ok) {
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          const result = await response.json();
+          alert(`✗ Ошибка (${response.status}): ${result.error || 'Неизвестная ошибка'}`);
+        } else {
+          alert(`✗ Ошибка сервера (${response.status}). Убедитесь, что backend запущен на http://localhost:8000`);
+        }
+        return;
+      }
+      const result = await response.json();
+      alert(`✓ Успешно сохранено ${result.count} исключенных ID в skipped_izhs.json`);
+      setTimeout(async () => {
+        try {
+          const fileResponse = await fetch(`${baseUrl}/skipped_izhs.json`);
+          if (fileResponse.ok) {
+            const data = await fileResponse.json();
+            skippedIzhsIds.clear();
+            if (Array.isArray(data)) {
+              data.forEach(id => skippedIzhsIds.add(id));
+            }
+            console.log("Updated skippedIzhsIds from backend:", [...skippedIzhsIds]);
+          }
+        } catch (e) {
+          console.warn("Could not reload skipped_izhs.json from backend:", e);
+        }
+      }, 500);
+      selectedLayersStyle.forEach((originalStyle, layer) => {
+        layer.setStyle(originalStyle);
+      });
+      selectedForSkip.clear();
+      selectedLayersStyle.clear();
+      updateSkipIzhsList();
+    } catch (e) {
+      alert(`✗ Ошибка при отправке: ${e.message}\n\nУбедитесь, что backend запущен на http://localhost:8000`);
+      console.error('Skip IZH error:', e);
+    }
+  }
+  document.getElementById('skipIzhsBtn').onclick = toggleSkipMode;
+  document.getElementById('saveSkippedBtn').onclick = saveSkippedIzhs;
+  document.getElementById('cancelSkipBtn').onclick = toggleSkipMode;
+</script>
+</body>
+</html>
