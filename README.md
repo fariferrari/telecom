@@ -1,7 +1,6 @@
 # telecom
-# BOSS Map API
 
-BOSS Map API is a FastAPI-based backend service for processing geospatial network infrastructure data and preparing it for visualization on a frontend map.
+This is a FastAPI-based backend service for processing geospatial network infrastructure data and preparing it for visualization on a frontend map.
 
 The service reads raw data about RK/KYA devices, subscriber addresses, cabinets, roads, rivers, and manual corrections. It then matches addresses with the most suitable network connection points and returns structured GeoJSON-like data that can be used by a map interface.
 
